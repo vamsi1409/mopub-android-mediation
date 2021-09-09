@@ -25,6 +25,11 @@ class InMobiNative : CustomEventNative() {
     private var mNativeListener: CustomEventNativeListener? = null
     private lateinit var mContext: Context
     private lateinit var mServerExtras: Map<String, String>
+    private var mInMobiAdapterConfiguration: InMobiAdapterConfiguration? = null
+
+    init {
+        mInMobiAdapterConfiguration = InMobiAdapterConfiguration()
+    }
 
     companion object {
         val ADAPTER_NAME: String = com.mopub.nativeads.InMobiNative::class.java.simpleName
@@ -65,6 +70,8 @@ class InMobiNative : CustomEventNative() {
             )
             return
         }
+
+        mInMobiAdapterConfiguration?.setCachedInitializationParameters(context, serverExtras)
 
         InMobiAdapterConfiguration.initializeInMobi(
             serverExtras,
@@ -108,18 +115,21 @@ class InMobiNative : CustomEventNative() {
         inMobiStaticNativeAd?.setExtras(InMobiAdapterConfiguration.inMobiTPExtras)
 
         val adMarkup = serverExtras[DataKeys.ADM_KEY]
+
+        MoPubLog.log(getAdNetworkId(), AdapterLogEvent.LOAD_ATTEMPTED, ADAPTER_NAME)
+
         if (adMarkup != null) {
-            MoPubLog.log(
-                AdapterLogEvent.CUSTOM, ADAPTER_NAME,
-                "Ad markup for InMobi Native ad request is present. Will make Advanced Bidding ad request " +
-                        "using markup: " + adMarkup
+            MoPubLog.log(AdapterLogEvent.CUSTOM, ADAPTER_NAME,
+                    "Ad markup for InMobi Native ad request is present. Will make Advanced Bidding ad request " +
+                            "using markup: " + adMarkup
             )
+
             inMobiStaticNativeAd?.loadAd(adMarkup.toByteArray())
         } else {
-            MoPubLog.log(
-                AdapterLogEvent.CUSTOM, ADAPTER_NAME,
-                "Ad markup for InMobi Native ad request is not present. Will make traditional ad request "
+            MoPubLog.log(AdapterLogEvent.CUSTOM, ADAPTER_NAME,
+                    "Ad markup for InMobi Native ad request is not present. Will make traditional ad request "
             )
+
             inMobiStaticNativeAd?.loadAd()
         }
     }
@@ -137,17 +147,21 @@ class InMobiNative : CustomEventNative() {
 
         private val nativeAdEventListener: NativeAdEventListener = object : NativeAdEventListener() {
             override fun onAdLoadSucceeded(ad: InMobiNative, info: AdMetaInfo) {
-                MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native Ad loaded successfully")
                 val imageUrls: MutableList<String> = ArrayList()
                 val iconImageUrl = adIconUrl
                 imageUrls.add(iconImageUrl)
 
                 NativeImageHelper.preCacheImages(mContext, imageUrls, object : NativeImageHelper.ImageListener {
                     override fun onImagesCached() {
+                        MoPubLog.log(placementId.toString(), AdapterLogEvent.LOAD_SUCCESS, ADAPTER_NAME)
+
                         mCustomEventNativeListener.onNativeAdLoaded(this@InMobiNativeAd)
                     }
 
                     override fun onImagesFailedToCache(errorCode: NativeErrorCode) {
+                        MoPubLog.log(placementId.toString(), AdapterLogEvent.LOAD_FAILED, ADAPTER_NAME,
+                                NativeErrorCode.IMAGE_DOWNLOAD_FAILURE.intCode, NativeErrorCode.IMAGE_DOWNLOAD_FAILURE)
+
                         mCustomEventNativeListener.onNativeAdFailed(errorCode)
                     }
                 })
@@ -202,27 +216,33 @@ class InMobiNative : CustomEventNative() {
 
             override fun onAdFullScreenDismissed(inMobiNative: InMobiNative) {
                 super.onAdFullScreenDismissed(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad onAdFullScreenDismissed")
             }
 
             override fun onAdFullScreenWillDisplay(inMobiNative: InMobiNative) {
                 super.onAdFullScreenWillDisplay(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad onAdFullScreenWillDisplay")
             }
 
             override fun onAdFullScreenDisplayed(inMobiNative: InMobiNative) {
                 super.onAdFullScreenDisplayed(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad onAdFullScreenDisplayed")
             }
 
             override fun onUserWillLeaveApplication(inMobiNative: InMobiNative) {
                 super.onUserWillLeaveApplication(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad onUserWillLeaveApplication")
             }
 
             override fun onAdImpressed(inMobiNative: InMobiNative) {
                 super.onAdImpressed(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad is displayed")
+
                 if (!mIsImpressionRecorded) {
                     mIsImpressionRecorded = true
                     notifyAdImpressed()
@@ -231,7 +251,9 @@ class InMobiNative : CustomEventNative() {
 
             override fun onAdClicked(inMobiNative: InMobiNative) {
                 super.onAdClicked(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad is clicked")
+
                 if (!mIsClickRecorded) {
                     notifyAdClicked()
                     mIsClickRecorded = true
@@ -240,6 +262,7 @@ class InMobiNative : CustomEventNative() {
 
             override fun onAdStatusChanged(inMobiNative: InMobiNative) {
                 super.onAdStatusChanged(inMobiNative)
+
                 MoPubLog.log(AdapterLogEvent.CUSTOM, TAG, "InMobi Native ad onAdStatusChanged")
             }
         }
